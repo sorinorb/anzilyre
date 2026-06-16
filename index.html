@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnziLyre - Virtual Piano</title>
+    <!-- Tailwind CSS untuk Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Konfigurasi Mode Gelap Tailwind -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        aesthetic: { bg: '#ffedf4', text: '#843c54', border: '#fbcfe8' }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome untuk Ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        /* Transisi Halus */
+        body { transition: background-color 0.5s, color 0.5s; }
+        .key-transition { transition: all 0.1s ease-out; }
+        
+        /* Animasi Tekan Tuts */
+        .key-active-white {
+            background-color: #fbcfe8 !important; /* pink-200 */
+            transform: translateY(2px);
+            border-bottom-width: 2px !important;
+            border-color: #f472b6 !important; /* pink-400 */
+        }
+        .key-active-black {
+            background-color: #ec4899 !important; /* pink-500 */
+            transform: translateY(2px) translateX(-50%) scale(0.95);
+            border-bottom-width: 2px !important;
+            border-color: #f9a8d4 !important; /* pink-300 */
+        }
+        
+        /* Animasi Panduan (Guided) */
+        .key-guide-white {
+            background-color: #e0f2fe !important; /* sky-100 */
+            border-bottom-color: #38bdf8 !important; /* sky-400 */
+            animation: pulse-guide 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .key-guide-black {
+            background-color: #0ea5e9 !important; /* sky-500 */
+            border-bottom-color: #7dd3fc !important; /* sky-300 */
+            animation: pulse-guide-black 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-guide {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .7; }
+        }
+        @keyframes pulse-guide-black {
+            0%, 100% { opacity: 1; background-color: #0ea5e9; }
+            50% { opacity: .8; background-color: #0284c7; }
+        }
+
+        /* Mode Mini Container */
+        .piano-container { transition: all 0.3s ease; }
+        .piano-container.mini-mode .piano-scroll-area { min-width: 100%; }
+        .piano-container.mini-mode .white-key span.key-label { font-size: 0.6rem; }
+        .piano-container.mini-mode .black-key span.key-label { font-size: 0.5rem; }
+    </style>
+</head>
+<body class="bg-aesthetic-bg text-aesthetic-text min-h-screen flex flex-col font-sans select-none overflow-x-hidden">
+
+    <!-- HEADER UTAMA -->
+    <header class="p-4 md:p-5 border-b bg-white/80 dark:bg-slate-800/90 dark:border-slate-700 backdrop-blur-md shadow-sm flex flex-col lg:flex-row justify-between items-center gap-4 transition-colors z-20 sticky top-0">
+        <div class="flex items-center gap-3">
+            <div class="p-3 rounded-full bg-pink-100 text-pink-500 dark:bg-pink-600/20 dark:text-pink-400">
+                <i class="fas fa-music fa-lg animate-pulse"></i>
+            </div>
+            <div>
+                <h1 class="text-xl md:text-2xl font-black tracking-widest flex items-center gap-2">
+                    ANZILYRE
+                    <span class="text-[10px] tracking-normal px-2.5 py-0.5 rounded-full font-bold bg-pink-500 text-white shadow-sm">
+                        WEB VERSION
+                    </span>
+                </h1>
+                <p class="text-xs opacity-75">Simulasi Papan Piano Klasik 3-Oktaf Responsif</p>
+            </div>
+        </div>
+
+        <!-- KONTROL PENGATURAN -->
+        <div class="flex flex-wrap gap-2 md:gap-3 items-center justify-center">
+            <button id="btn-mini" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border border-pink-200 dark:border-slate-600 hover:bg-black/5 dark:hover:bg-white/5">
+                <i class="fas fa-compress-arrows-alt"></i> Mode Mini
+            </button>
+            <button id="btn-theme" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all bg-pink-500 text-white hover:bg-pink-600 dark:bg-slate-700 dark:hover:bg-slate-600 shadow-sm">
+                <i class="fas fa-moon"></i> Tema Gelap
+            </button>
+            
+            <div class="flex rounded-full overflow-hidden p-1 bg-black/5 dark:bg-black/20 text-xs font-bold">
+                <button class="inst-btn active px-3 py-1 rounded-full transition-all bg-pink-400 text-white shadow-sm" data-inst="piano">Piano</button>
+                <button class="inst-btn px-3 py-1 rounded-full transition-all opacity-70 hover:opacity-100" data-inst="lyre">Harpa</button>
+                <button class="inst-btn px-3 py-1 rounded-full transition-all opacity-70 hover:opacity-100" data-inst="musicbox">Kotak Musik</button>
+            </div>
+
+            <div class="flex items-center gap-2 px-3 py-1 bg-black/5 dark:bg-black/20 rounded-full">
+                <i class="fas fa-volume-up text-xs opacity-70"></i>
+                <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="0.8" class="w-16 md:w-20 h-1.5 rounded-lg appearance-none bg-current opacity-60 cursor-pointer accent-pink-500">
+            </div>
+        </div>
+    </header>
+
+    <!-- KONTEN UTAMA -->
+    <main class="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-5 p-4 md:p-6 w-full max-w-[1400px] mx-auto items-stretch z-10">
+        
+        <!-- PANEL KIRI (Menu) -->
+        <section class="lg:col-span-4 flex flex-col gap-4">
+            
+            <!-- Alat Rekam -->
+            <div class="p-5 rounded-3xl bg-white dark:bg-slate-800 shadow-sm border border-pink-100 dark:border-slate-700 transition-colors">
+                <h2 class="text-sm font-bold flex items-center gap-2 mb-3">
+                    <i class="fas fa-record-vinyl text-pink-500"></i> Perekam Melodi
+                </h2>
+                <div class="flex flex-col gap-2.5">
+                    <div class="flex gap-2">
+                        <button id="btn-record" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-red-500 hover:bg-red-600 transition flex justify-center items-center gap-1.5">
+                            <span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> Mulai Rekam
+                        </button>
+                        <button id="btn-play-record" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-slate-300 dark:bg-slate-700 opacity-50 cursor-not-allowed transition flex justify-center items-center gap-1.5" disabled>
+                            <i class="fas fa-play"></i> Putar Rekaman
+                        </button>
+                    </div>
+                    <div id="record-status" class="hidden items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-900/40 rounded-xl text-xs mt-1">
+                        <span class="opacity-70" id="record-count">Tersimpan: 0 Not</span>
+                        <button id="btn-clear-record" class="text-red-500 hover:underline font-semibold">Hapus</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Library & Pembelajaran Lagu -->
+            <div class="p-5 rounded-3xl flex-grow flex flex-col bg-white dark:bg-slate-800 shadow-sm border border-pink-100 dark:border-slate-700 transition-colors">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm font-bold flex items-center gap-2">
+                        <i class="fas fa-book-open text-pink-500"></i> Perpustakaan Lagu
+                    </h2>
+                    <button id="btn-stop-learning" class="hidden text-[10px] px-2.5 py-1 bg-red-100 text-red-600 rounded-full font-bold hover:bg-red-200">
+                        Berhenti Belajar
+                    </button>
+                </div>
+
+                <!-- Tampilan Saat Belajar Lagu Aktif -->
+                <div id="learning-panel" class="hidden flex-grow flex flex-col justify-between p-4 bg-pink-50/30 dark:bg-slate-900/50 rounded-2xl border border-pink-100 dark:border-slate-700">
+                    <div>
+                        <span class="text-[10px] uppercase tracking-wider font-bold text-pink-500">Sedang Berlatih</span>
+                        <h3 id="learn-title" class="font-bold text-base mt-0.5">Judul Lagu</h3>
+                        <p class="text-xs opacity-70 mt-1">
+                            Tekan tuts <strong id="learn-target-label" class="text-pink-500 font-extrabold">C4</strong> yang ditandai warna biru.
+                        </p>
+                    </div>
+                    <div class="my-4">
+                        <div class="flex justify-between text-[10px] font-bold mb-1">
+                            <span>Progres Ketukan</span>
+                            <span id="learn-progress-text">1 / 10</span>
+                        </div>
+                        <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                            <div id="learn-progress-bar" class="bg-pink-500 h-full transition-all duration-300 w-[10%]"></div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="btn-demo-in-learn" class="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-sky-500 hover:bg-sky-600 transition flex justify-center items-center gap-1.5 shadow-sm">
+                            <i class="fas fa-play-circle"></i> Putar Contoh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Daftar Lagu Utama -->
+                <div id="song-list" class="flex-grow overflow-y-auto max-h-[400px] space-y-2 pr-1">
+                    <!-- Item lagu akan di-render menggunakan JavaScript -->
+                </div>
+            </div>
+        </section>
+
+        <!-- PANEL KANAN (Piano) -->
+        <section class="lg:col-span-8 flex flex-col relative w-full overflow-hidden">
+            <!-- Toast Notifikasi -->
+            <div id="toast" class="absolute top-2 left-1/2 transform -translate-x-1/2 z-50 bg-green-500 text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-2 opacity-0 pointer-events-none transition-opacity duration-300">
+                <i class="fas fa-check-circle"></i>
+                <span class="font-bold text-xs" id="toast-text">Berhasil menyelesaikan lagu!</span>
+            </div>
+
+            <!-- Piano Body -->
+            <div id="piano-wrapper" class="piano-container relative p-4 md:p-6 lg:p-8 h-full min-h-[400px] rounded-[30px] flex flex-col overflow-hidden transition-colors bg-white dark:bg-slate-800/95 border border-pink-100 dark:border-slate-700 shadow-2xl">
+                
+                <!-- Hiasan Atas Kayu Piano -->
+                <div class="w-full h-10 md:h-12 bg-gradient-to-r from-amber-900 via-amber-800 to-amber-900 rounded-t-xl border-b border-black/80 shadow-md flex items-center justify-center shrink-0">
+                    <span class="text-[10px] md:text-xs text-amber-100/60 tracking-[0.4em] font-serif font-bold">ANZILYRE CONCERT</span>
+                </div>
+
+                <!-- Wadah Tuts (Scrollable secara horizontal jika tidak mode mini) -->
+                <div class="w-full flex-grow overflow-x-auto overflow-y-hidden bg-slate-100 dark:bg-slate-950 rounded-b-xl shadow-inner border-l border-r border-b border-black/20" style="scrollbar-width: thin;">
+                    <!-- Area Dalam Piano -->
+                    <div id="piano-keys-area" class="piano-scroll-area relative min-w-[900px] h-full flex">
+                        <!-- Tuts Putih Container -->
+                        <div id="white-keys-container" class="absolute inset-0 w-full h-full flex z-10"></div>
+                        <!-- Tuts Hitam Container -->
+                        <div id="black-keys-container" class="absolute inset-0 w-full h-full z-20 pointer-events-none"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- LOGIKA JAVASCRIPT -->
+    <script>
+        // === DATA KONFIGURASI NADA ===
+        const PIANO_NOTES = [
+            // Oktaf 3
+            { id: 'C3', label: 'C3', freq: 130.81, key: 'Z', type: 'white', position: 0 },
+            { id: 'C#3', label: 'C#3', freq: 138.59, key: '1', type: 'black', position: 0.5 },
+            { id: 'D3', label: 'D3', freq: 146.83, key: 'X', type: 'white', position: 1 },
+            { id: 'D#3', label: 'D#3', freq: 155.56, key: '2', type: 'black', position: 1.5 },
+            { id: 'E3', label: 'E3', freq: 164.81, key: 'C', type: 'white', position: 2 },
+            { id: 'F3', label: 'F3', freq: 174.61, key: 'V', type: 'white', position: 3 },
+            { id: 'F#3', label: 'F#3', freq: 185.00, key: '3', type: 'black', position: 3.5 },
+            { id: 'G3', label: 'G3', freq: 196.00, key: 'B', type: 'white', position: 4 },
+            { id: 'G#3', label: 'G#3', freq: 207.65, key: '4', type: 'black', position: 4.5 },
+            { id: 'A3', label: 'A3', freq: 220.00, key: 'N', type: 'white', position: 5 },
+            { id: 'A#3', label: 'A#3', freq: 233.08, key: '5', type: 'black', position: 5.5 },
+            { id: 'B3', label: 'B3', freq: 246.94, key: 'M', type: 'white', position: 6 },
+            // Oktaf 4
+            { id: 'C4', label: 'C4', freq: 261.63, key: 'A', type: 'white', position: 7 },
+            { id: 'C#4', label: 'C#4', freq: 277.18, key: '6', type: 'black', position: 7.5 },
+            { id: 'D4', label: 'D4', freq: 293.66, key: 'S', type: 'white', position: 8 },
+            { id: 'D#4', label: 'D#4', freq: 311.13, key: '7', type: 'black', position: 8.5 },
+            { id: 'E4', label: 'E4', freq: 329.63, key: 'D', type: 'white', position: 9 },
+            { id: 'F4', label: 'F4', freq: 349.23, key: 'F', type: 'white', position: 10 },
+            { id: 'F#4', label: 'F#4', freq: 369.99, key: '8', type: 'black', position: 10.5 },
+            { id: 'G4', label: 'G4', freq: 392.00, key: 'G', type: 'white', position: 11 },
+            { id: 'G#4', label: 'G#4', freq: 415.30, key: '9', type: 'black', position: 11.5 },
+            { id: 'A4', label: 'A4', freq: 440.00, key: 'H', type: 'white', position: 12 },
+            { id: 'A#4', label: 'A#4', freq: 466.16, key: '0', type: 'black', position: 12.5 },
+            { id: 'B4', label: 'B4', freq: 493.88, key: 'J', type: 'white', position: 13 },
+            // Oktaf 5
+            { id: 'C5', label: 'C5', freq: 523.25, key: 'Q', type: 'white', position: 14 },
+            { id: 'C#5', label: 'C#5', freq: 554.37, key: '-', type: 'black', position: 14.5 },
+            { id: 'D5', label: 'D5', freq: 587.33, key: 'W', type: 'white', position: 15 },
+            { id: 'D#5', label: 'D#5', freq: 622.25, key: '=', type: 'black', position: 15.5 },
+            { id: 'E5', label: 'E5', freq: 659.25, key: 'E', type: 'white', position: 16 },
+            { id: 'F5', label: 'F5', freq: 698.46, key: 'R', type: 'white', position: 17 },
+            { id: 'F#5', label: 'F#5', freq: 739.99, key: '[', type: 'black', position: 17.5 },
+            { id: 'G5', label: 'G5', freq: 783.99, key: 'T', type: 'white', position: 18 },
+            { id: 'G#5', label: 'G#5', freq: 830.61, key: ']', type: 'black', position: 18.5 },
+            { id: 'A5', label: 'A5', freq: 880.00, key: 'Y', type: 'white', position: 19 },
+            { id: 'A#5', label: 'A#5', freq: 932.33, key: '\\', type: 'black', position: 19.5 },
+            { id: 'B5', label: 'B5', freq: 987.77, key: 'U', type: 'white', position: 20 },
+        ];
+
+        // Generator urutan nada dengan jeda (delay) seragam untuk efisiensi
+        const generateNotes = (strData, baseDelay = 400) => {
+            return strData.split(',').map((k, i) => ({ key: k.trim(), delay: i * baseDelay }));
+        };
+
+        const SONG_LIBRARY = [
+            {
+                title: "Ibu Kita Kartini", category: "Lagu Nasional",
+                notes: generateNotes("D,F,G,H,F,D,A,D,S,D,F,S,A,D,F,G,H,F,D,A,D,S,D,F,S,A,G,H,Q,H,G,F,D,F,G,A,D,F,G,H,F,D,A,D,S,D,F,S,A")
+            },
+            {
+                title: "Ode To Joy (Beethoven)", category: "Klasik",
+                notes: generateNotes("E,E,R,T,T,R,E,W,Q,Q,W,E,E,W,W,E,E,R,T,T,R,E,W,Q,Q,W,E,W,Q,Q,W,W,E,Q,W,E,R,E,Q,W,E,R,E,W,Q,W,M,E,E,R,T,T,R,E,W,Q,Q,W,E,W,Q,Q")
+            },
+            {
+                title: "Fur Elise (Beethoven)", category: "Klasik",
+                notes: generateNotes("E,=,E,=,E,U,W,Q,N,Z,E,N,M,E,G,M,N,E,=,E,=,E,U,W,Q,N,Z,E,N,M,E,Q,M,N,B,M,Q,W,E,G,F,E,W,F,E,W,Q,E,W,Q,N")
+            },
+            {
+                title: "Canon in D", category: "Pernikahan / Klasik",
+                notes: generateNotes("[,E,W,-,M,N,M,-,[,E,W,-,M,N,M,-,Q,W,E,R,T,Y,U,[,E,W,E,[,U,Y,T,R,E,W,Q,W,E,[,T,R,E,W,Q,N,M,-,Q,W,E,R,E,W,Q,M,N,M")
+            },
+            {
+                title: "Happy Birthday", category: "Perayaan",
+                notes: generateNotes("B,B,N,B,A,M,B,B,N,B,S,A,B,B,G,D,A,M,N,F,F,D,A,S,A,B,B,N,B,A,M,B,B,N,B,S,A,B,B,G,D,A,M,N,F,F,D,A,S,A")
+            },
+            {
+                title: "I Love You 3000", category: "Pop Barat (Stephanie P)",
+                notes: generateNotes("J,Q,W,Q,J,H,Q,J,H,J,Q,W,Q,J,H,J,H,J,J,Q,W,Q,J,H,Q,J,H,G,J,H,G,D,S,A,M,D,S,A,D,S,A,D,D,F,G,D,S,A", 450)
+            }
+        ];
+
+        // === STATE APLIKASI ===
+        let audioCtx = null;
+        let instrument = 'piano';
+        let volume = 0.8;
+        let isDarkMode = false;
+        let isMiniMode = false;
+        
+        // Perekaman
+        let isRecording = false;
+        let recordedNotes = [];
+        let recordStartTime = 0;
+        
+        // Belajar / Auto-Play
+        let currentSong = null;
+        let guideIndex = 0;
+        let demoTimeouts = [];
+        let isDemoPlaying = false;
+
+        // Referensi DOM Tuts
+        const keyElements = {};
+
+        // === INISIALISASI AUDIO (Web Audio API) ===
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        // === FUNGSI MEMAINKAN SUARA ===
+        function playSound(freq, instType) {
+            const ctx = initAudio();
+            if (!ctx) return;
+
+            const now = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            const filterNode = ctx.createBiquadFilter();
+
+            osc.connect(filterNode);
+            filterNode.connect(gainNode);
+            gainNode.connect(ctx.destination);
+
+            if (instType === 'lyre') {
+                osc.type = 'triangle';
+                filterNode.type = 'lowpass';
+                filterNode.frequency.setValueAtTime(2000, now);
+                filterNode.frequency.exponentialRampToValueAtTime(800, now + 1.2);
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(volume * 0.7, now + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+                osc.frequency.setValueAtTime(freq, now);
+                osc.start(now);
+                osc.stop(now + 1.8);
+            } else if (instType === 'piano') {
+                osc.type = 'sine';
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(freq * 2, now);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(volume * 0.6, now + 0.005);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+
+                gain2.gain.setValueAtTime(0, now);
+                gain2.gain.linearRampToValueAtTime(volume * 0.15, now + 0.005);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+
+                osc.frequency.setValueAtTime(freq, now);
+                osc.start(now);
+                osc2.start(now);
+                osc.stop(now + 2.5);
+                osc2.stop(now + 2.5);
+            } else if (instType === 'musicbox') {
+                osc.type = 'sine';
+                filterNode.type = 'highpass';
+                filterNode.frequency.setValueAtTime(150, now);
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(volume * 0.5, now + 0.02);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 3.0);
+                
+                const lfo = ctx.createOscillator();
+                const lfoGain = ctx.createGain();
+                lfo.frequency.value = 6;
+                lfoGain.gain.value = 4;
+                lfo.connect(lfoGain);
+                lfoGain.connect(osc.frequency);
+                
+                osc.frequency.setValueAtTime(freq, now);
+                lfo.start(now);
+                osc.start(now);
+                lfo.stop(now + 3.0);
+                osc.stop(now + 3.0);
+            }
+        }
+
+        // === FUNGSI TEKAN TUTS & ANIMASI ===
+        function triggerNote(noteObj, isAutoPlay = false) {
+            playSound(noteObj.freq, instrument);
+            
+            // Animasi visual
+            const el = keyElements[noteObj.key];
+            if (el) {
+                const activeClass = noteObj.type === 'white' ? 'key-active-white' : 'key-active-black';
+                el.classList.add(activeClass);
+                setTimeout(() => el.classList.remove(activeClass), 200);
+            }
+
+            // Perekaman
+            if (isRecording && !isAutoPlay) {
+                recordedNotes.push({ key: noteObj.key, delay: Date.now() - recordStartTime });
+                document.getElementById('record-count').innerText = `Tersimpan: ${recordedNotes.length} Not`;
+                document.getElementById('btn-play-record').classList.remove('opacity-50', 'cursor-not-allowed', 'bg-slate-300', 'dark:bg-slate-700');
+                document.getElementById('btn-play-record').classList.add('bg-green-500', 'hover:bg-green-600');
+                document.getElementById('btn-play-record').removeAttribute('disabled');
+                document.getElementById('record-status').classList.remove('hidden');
+                document.getElementById('record-status').classList.add('flex');
+            }
+
+            // Logika Belajar Lagu
+            if (currentSong && !isDemoPlaying && !isAutoPlay) {
+                const targetKey = currentSong.notes[guideIndex].key;
+                if (noteObj.key === targetKey) {
+                    guideIndex++;
+                    updateLearningUI();
+                }
+            }
+        }
+
+        // === RENDER PAPAN PIANO ===
+        function renderKeyboard() {
+            const whiteContainer = document.getElementById('white-keys-container');
+            const blackContainer = document.getElementById('black-keys-container');
+            
+            whiteContainer.innerHTML = '';
+            blackContainer.innerHTML = '';
+
+            PIANO_NOTES.forEach(note => {
+                const btn = document.createElement('button');
+                btn.className = 'key-transition outline-none flex flex-col justify-end items-center pointer-events-auto ';
+                
+                if (note.type === 'white') {
+                    btn.className += 'white-key relative flex-1 h-full pb-4 bg-white hover:bg-slate-50 border-b-[8px] border-slate-200 border-r border-black/10';
+                    btn.innerHTML = `
+                        <span class="key-label text-sm font-extrabold text-slate-800 pointer-events-none">${note.label}</span>
+                        <span class="text-[9px] opacity-40 font-bold uppercase pointer-events-none mt-1">${note.key}</span>
+                    `;
+                    btn.onmousedown = () => triggerNote(note);
+                    whiteContainer.appendChild(btn);
+                } else {
+                    btn.className += 'black-key absolute z-20 rounded-b shadow-lg pb-3 bg-slate-900 hover:bg-slate-800 border-b-[8px] border-black -translate-x-1/2';
+                    btn.style.left = `${(note.position / 21) * 100}%`;
+                    btn.style.width = `3.3%`;
+                    btn.style.height = `60%`;
+                    btn.innerHTML = `
+                        <span class="key-label text-[9px] font-extrabold text-white pointer-events-none">${note.label}</span>
+                        <span class="text-[8px] opacity-60 text-pink-300 font-bold uppercase pointer-events-none mt-1">${note.key}</span>
+                    `;
+                    btn.onmousedown = () => triggerNote(note);
+                    blackContainer.appendChild(btn);
+                }
+                keyElements[note.key] = btn;
+            });
+        }
+
+        // === RENDER DAFTAR LAGU ===
+        function renderSongList() {
+            const list = document.getElementById('song-list');
+            list.innerHTML = '';
+            
+            SONG_LIBRARY.forEach((song, idx) => {
+                const item = document.createElement('div');
+                item.className = 'p-3 rounded-2xl border transition-all cursor-pointer flex justify-between items-center bg-slate-50 hover:bg-pink-50/50 border-slate-100 hover:border-pink-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700/50';
+                
+                item.innerHTML = `
+                    <div class="flex-grow" onclick="startLearning(${idx})">
+                        <h4 class="font-bold text-xs">${song.title} <span class="text-[9px] font-normal opacity-60 ml-1">(${song.notes.length} not)</span></h4>
+                        <span class="text-[10px] opacity-60">${song.category}</span>
+                    </div>
+                    <button onclick="playDemoFromList(${idx})" class="p-2 rounded-full transition bg-pink-100 text-pink-500 hover:bg-pink-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-pink-600 dark:hover:text-white" title="Putar Simulasi">
+                        <i class="fas fa-play text-xs"></i>
+                    </button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // === LOGIKA DEMO / AUTO-PLAY ===
+        function stopAllDemo() {
+            demoTimeouts.forEach(clearTimeout);
+            demoTimeouts = [];
+            isDemoPlaying = false;
+            
+            // Reset tombol UI demo jika ada
+            const btnDemo = document.getElementById('btn-demo-in-learn');
+            if(btnDemo) {
+                btnDemo.innerHTML = '<i class="fas fa-play-circle"></i> Putar Contoh';
+                btnDemo.classList.replace('bg-red-500', 'bg-sky-500');
+                btnDemo.classList.replace('hover:bg-red-600', 'hover:bg-sky-600');
+            }
+        }
+
+        function playDemoFromList(idx) {
+            stopLearning();
+            playDemoSequence(SONG_LIBRARY[idx]);
+        }
+
+        function playDemoSequence(song) {
+            initAudio();
+            stopAllDemo();
+            isDemoPlaying = true;
+            
+            // Update UI tombol
+            const btnDemo = document.getElementById('btn-demo-in-learn');
+            if(btnDemo && currentSong) {
+                btnDemo.innerHTML = '<i class="fas fa-stop-circle"></i> Stop Contoh';
+                btnDemo.classList.replace('bg-sky-500', 'bg-red-500');
+                btnDemo.classList.replace('hover:bg-sky-600', 'hover:bg-red-600');
+            }
+
+            let maxDelay = 0;
+            song.notes.forEach(noteCode => {
+                let t = setTimeout(() => {
+                    const noteObj = PIANO_NOTES.find(n => n.key === noteCode.key);
+                    if(noteObj) triggerNote(noteObj, true);
+                }, noteCode.delay);
+                demoTimeouts.push(t);
+                if (noteCode.delay > maxDelay) maxDelay = noteCode.delay;
+            });
+
+            // Reset setelah selesai
+            let endT = setTimeout(() => {
+                stopAllDemo();
+            }, maxDelay + 1000);
+            demoTimeouts.push(endT);
+        }
+
+        // === LOGIKA BELAJAR LAGU ===
+        function startLearning(idx) {
+            stopAllDemo();
+            currentSong = SONG_LIBRARY[idx];
+            guideIndex = 0;
+            
+            document.getElementById('song-list').classList.add('hidden');
+            document.getElementById('learning-panel').classList.remove('hidden');
+            document.getElementById('learning-panel').classList.add('flex');
+            document.getElementById('btn-stop-learning').classList.remove('hidden');
+            
+            document.getElementById('learn-title').innerText = currentSong.title;
+            updateLearningUI();
+        }
+
+        function stopLearning() {
+            stopAllDemo();
+            currentSong = null;
+            clearAllHighlights();
+            
+            document.getElementById('song-list').classList.remove('hidden');
+            document.getElementById('learning-panel').classList.add('hidden');
+            document.getElementById('learning-panel').classList.remove('flex');
+            document.getElementById('btn-stop-learning').classList.add('hidden');
+        }
+
+        function clearAllHighlights() {
+            Object.values(keyElements).forEach(el => {
+                el.classList.remove('key-guide-white', 'key-guide-black');
+            });
+        }
+
+        function updateLearningUI() {
+            clearAllHighlights();
+            
+            if (guideIndex >= currentSong.notes.length) {
+                // Lagu Selesai
+                showToast("Hebat! Anda berhasil memainkan melodi ini dengan sempurna! ✨");
+                stopLearning();
+                return;
+            }
+
+            const targetKey = currentSong.notes[guideIndex].key;
+            const noteObj = PIANO_NOTES.find(n => n.key === targetKey);
+            
+            if (noteObj) {
+                document.getElementById('learn-target-label').innerText = noteObj.label;
+                document.getElementById('learn-progress-text').innerText = `${guideIndex + 1} / ${currentSong.notes.length}`;
+                document.getElementById('learn-progress-bar').style.width = `${((guideIndex + 1) / currentSong.notes.length) * 100}%`;
+                
+                // Tambah highlight
+                const el = keyElements[targetKey];
+                if (el) {
+                    el.classList.add(noteObj.type === 'white' ? 'key-guide-white' : 'key-guide-black');
+                }
+            }
+        }
+
+        // === FUNGSI TOAST ===
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-text').innerText = msg;
+            toast.classList.remove('opacity-0');
+            setTimeout(() => toast.classList.add('opacity-0'), 4000);
+        }
+
+        // === EVENT LISTENER UTAMA ===
+        document.addEventListener('DOMContentLoaded', () => {
+            renderKeyboard();
+            renderSongList();
+
+            // Keyboard Komputer
+            window.addEventListener('keydown', (e) => {
+                if (e.repeat) return;
+                const raw = e.key;
+                const upper = raw.toUpperCase();
+                let matched = PIANO_NOTES.find(n => n.key === raw || n.key === upper);
+                if (matched) triggerNote(matched);
+            });
+
+            // Ganti Instrumen
+            document.querySelectorAll('.inst-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.inst-btn').forEach(b => {
+                        b.classList.remove('bg-pink-400', 'text-white', 'shadow-sm', 'bg-pink-600');
+                        b.classList.add('opacity-70');
+                    });
+                    const t = e.target;
+                    t.classList.remove('opacity-70');
+                    t.classList.add(isDarkMode ? 'bg-pink-600' : 'bg-pink-400', 'text-white', 'shadow-sm');
+                    
+                    instrument = t.getAttribute('data-inst');
+                    initAudio();
+                });
+            });
+
+            // Volume
+            document.getElementById('volume-slider').addEventListener('input', (e) => {
+                volume = parseFloat(e.target.value);
+            });
+
+            // Tema Gelap Toggle
+            document.getElementById('btn-theme').addEventListener('click', () => {
+                isDarkMode = !isDarkMode;
+                document.documentElement.classList.toggle('dark');
+                
+                const btn = document.getElementById('btn-theme');
+                if (isDarkMode) {
+                    btn.innerHTML = '<i class="fas fa-sun"></i> Tema Terang';
+                    btn.classList.replace('bg-pink-500', 'bg-slate-700');
+                    btn.classList.replace('hover:bg-pink-600', 'hover:bg-slate-600');
+                } else {
+                    btn.innerHTML = '<i class="fas fa-moon"></i> Tema Gelap';
+                    btn.classList.replace('bg-slate-700', 'bg-pink-500');
+                    btn.classList.replace('hover:bg-slate-600', 'hover:bg-pink-600');
+                }
+
+                // Update warna aktif instrumen
+                const activeInst = document.querySelector('.inst-btn:not(.opacity-70)');
+                if (activeInst) {
+                    activeInst.classList.remove('bg-pink-400', 'bg-pink-600');
+                    activeInst.classList.add(isDarkMode ? 'bg-pink-600' : 'bg-pink-400');
+                }
+            });
+
+            // Mode Mini Toggle
+            document.getElementById('btn-mini').addEventListener('click', () => {
+                isMiniMode = !isMiniMode;
+                const wrapper = document.getElementById('piano-wrapper');
+                const btn = document.getElementById('btn-mini');
+                
+                if (isMiniMode) {
+                    wrapper.classList.add('mini-mode');
+                    btn.classList.add('bg-black/10', 'dark:bg-white/10');
+                } else {
+                    wrapper.classList.remove('mini-mode');
+                    btn.classList.remove('bg-black/10', 'dark:bg-white/10');
+                }
+            });
+
+            // Kontrol Perekam
+            const btnRecord = document.getElementById('btn-record');
+            const btnPlayRecord = document.getElementById('btn-play-record');
+            const btnClearRecord = document.getElementById('btn-clear-record');
+
+            btnRecord.addEventListener('click', () => {
+                initAudio();
+                if (!isRecording) {
+                    isRecording = true;
+                    recordedNotes = [];
+                    recordStartTime = Date.now();
+                    btnRecord.innerHTML = '<i class="fas fa-square text-white"></i> Selesai Rekam';
+                    btnRecord.classList.replace('bg-red-500', 'bg-slate-700');
+                    btnRecord.classList.replace('hover:bg-red-600', 'hover:bg-slate-800');
+                } else {
+                    isRecording = false;
+                    btnRecord.innerHTML = '<span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> Mulai Rekam';
+                    btnRecord.classList.replace('bg-slate-700', 'bg-red-500');
+                    btnRecord.classList.replace('hover:bg-slate-800', 'hover:bg-red-600');
+                }
+            });
+
+            btnPlayRecord.addEventListener('click', () => {
+                if (recordedNotes.length === 0) return;
+                initAudio();
+                stopAllDemo();
+                
+                let maxDelay = 0;
+                recordedNotes.forEach(item => {
+                    setTimeout(() => {
+                        const matched = PIANO_NOTES.find(n => n.key === item.key);
+                        if (matched) triggerNote(matched, true);
+                    }, item.delay);
+                    if (item.delay > maxDelay) maxDelay = item.delay;
+                });
+            });
+
+            btnClearRecord.addEventListener('click', () => {
+                recordedNotes = [];
+                document.getElementById('record-status').classList.remove('flex');
+                document.getElementById('record-status').classList.add('hidden');
+                btnPlayRecord.classList.add('opacity-50', 'cursor-not-allowed', 'bg-slate-300', 'dark:bg-slate-700');
+                btnPlayRecord.classList.remove('bg-green-500', 'hover:bg-green-600');
+                btnPlayRecord.setAttribute('disabled', 'true');
+            });
+
+            // Kontrol UI Belajar Lagu
+            document.getElementById('btn-stop-learning').addEventListener('click', stopLearning);
+            
+            document.getElementById('btn-demo-in-learn').addEventListener('click', () => {
+                if (isDemoPlaying) {
+                    stopAllDemo();
+                } else {
+                    if (currentSong) playDemoSequence(currentSong);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
